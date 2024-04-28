@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presentation App</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<style>
+    .button-custom {
+        background-color: black;
+        border: none;
+        color: white;
+        padding: 20px 40px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 18px;
+        cursor: not-allowed;
+        border-radius: 50%;
+        box-shadow: 0 12px #666;
+        transition: background-color 0.3s ease;
+        margin-top: 10px;
+    }
+    .button-custom.enabled {
+        background-color: red;
+        cursor: pointer;
+        box-shadow: 0 12px #999;
+    }
+    .button-custom.enabled:active {
+        background-color: #D60000;
+        box-shadow: 0 5px #666;
+        transform: translateY(7px);
+    }
+</style>
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="mt-4">클라이언트</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item active">* 내 이름과 조를 입력하세요.</li>
+    </ol>
+    <hr class="border border-primary border-3 opacity-75">
+
+    <div class="row">
+        <div class="col-12 col-md-4 mb-3">
+            <input type="text" id="name" class="form-control" placeholder="이름 입력">
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+            <select id="groupSelect" class="form-select">
+                <option selected>조 선택</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+            <button id="presentBtn" class="btn button-custom" onclick="requestToPresent()" disabled>발표하기</button>
+        </div>
+    </div>
+    <pre id="scores" class="bg-light p-2">점수:</pre>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">발표자 정보</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">정보가 여기 표시됩니다.</div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    const toast = new bootstrap.Toast(document.getElementById('liveToast')); // 토스트 인스턴스 생성
+
+    function requestToPresent() {
+        const name = document.getElementById('name').value;
+        const group = document.getElementById('groupSelect').value;
+        socket.emit('request to present', { name, group });
+    }
+
+    socket.on('button activated', () => {
+        const btn = document.getElementById('presentBtn');
+        btn.disabled = false;
+        btn.classList.add('enabled');
+    });
+
+    socket.on('disable button', () => {
+        const btn = document.getElementById('presentBtn');
+        btn.disabled = true;
+        btn.classList.remove('enabled');
+        displayToast();
+    });
+
+    let presenterInfo = [];
+    socket.on('presenter confirmed', (data) => {
+        presenterInfo.push({name: data.name, group: data.group});
+    });
+
+    function displayToast() {
+        const toastBody = document.querySelector('.toast-body');
+        toastBody.textContent = ''; // 토스트 메시지 초기화
+        presenterInfo.forEach((presenter, index) => {
+            toastBody.textContent += `${index + 1}등 : ${presenter.group}조 ${presenter.name}\n`; // 등수를 추가하여 표시
+        });
+        toast.show();
+        presenterInfo = []; // 정보 표시 후 배열 초기화
+    }
+
+    socket.on('score updated', (data) => {
+        const scoreDisplay = document.getElementById('scores');
+        const scoreEntry = `조 ${data.group}: ${data.score} 점\n`;
+        if (scoreDisplay.textContent.includes(`조 ${data.group}:`)) {
+            const regex = new RegExp(`조 ${data.group}: \\d+ 점\\n`, 'g');
+            scoreDisplay.textContent = scoreDisplay.textContent.replace(regex, scoreEntry);
+        } else {
+            scoreDisplay.textContent += scoreEntry;
+        }
+    });
+
+    socket.on('number of groups updated', (numGroups) => {
+        const groupSelect = document.getElementById('groupSelect');
+        groupSelect.innerHTML = '';
+        for (let i = 1; i <= numGroups; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `조 ${i}`;
+            groupSelect.appendChild(option);
+        }
+    });
+</script>
+</body>
+</html>

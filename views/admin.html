@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Panel</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+<script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="mt-4">사회자 화면</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item active">* 게임에 참여할 조의 수를 선택해주세요.</li>
+    </ol>
+    <hr class="border border-primary border-3 opacity-75">
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <button id="startBtn" class="btn btn-warning btn-lg" onclick="activateButton()">선착순 시작</button>
+            <p id="info" class="mt-3 fs-1 text-primary">초기 화면</p> <!-- 발표자 선정 텍스트를 크게 표시 -->
+        </div>
+        <div class="col-md-4">
+            <input type="text" id="group" class="form-control mb-2" placeholder="조 입력">
+            <input type="number" id="score" class="form-control mb-2" placeholder="획득 점수">
+            <button class="btn btn-primary" onclick="updateScore()">정답 처리</button>
+        </div>
+        <div class="col-md-4">
+            <input type="number" id="numGroups" class="form-control mb-2" placeholder="참가 조 수 입력">
+            <button id="setGroupsBtn" class="btn btn-success" onclick="setNumberOfGroups()">최대 조 설정</button>
+        </div>
+    </div>
+    <pre id="scores" class="bg-light p-2">점수 현황:</pre>
+</div>
+
+<script>
+    const socket = io();
+
+    function activateButton() {
+        const startBtn = document.getElementById('startBtn');
+        startBtn.disabled = true;
+        socket.emit('activate button');
+    }
+
+    function updateScore() {
+        const group = document.getElementById('group').value;
+        const score = parseInt(document.getElementById('score').value, 10);
+        socket.emit('score update', { group, score });
+    }
+
+    function setNumberOfGroups() {
+        const numGroups = parseInt(document.getElementById('numGroups').value, 10);
+        socket.emit('set number of groups', numGroups);
+        document.getElementById('setGroupsBtn').disabled = true;
+        document.getElementById('numGroups').disabled = true;
+    }
+
+    socket.on('update presenter list', (presenters) => {
+        const info = document.getElementById('info');
+        info.innerHTML = '';
+        presenters.forEach((presenter, index) => {
+            info.innerHTML += `${index + 1}등: ${presenter.group}조 ${presenter.name}<br>`;
+        });
+    });
+
+    socket.on('button activated', () => {
+        document.getElementById('info').textContent = '발표자를 기다리는 중..';
+    });
+
+    socket.on('disable button', () => {
+        const startBtn = document.getElementById('startBtn');
+        startBtn.disabled = false;
+    });
+
+    socket.on('score updated', (data) => {
+        document.getElementById('scores').textContent += `${data.group}조: ${data.score} 점\n`;
+    });
+
+    socket.on('number of groups updated', (numGroups) => {
+        alert('Number of groups is set to: ' + numGroups);
+    });
+</script>
+</body>
+</html>
